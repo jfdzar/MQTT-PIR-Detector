@@ -11,27 +11,28 @@
 #include "WiFiCredentials.h"
 
 /************************* Adafruit.io Setup *********************************/
-#define LEAK_SENSOR_PIN 2
+#define PIR_SENSOR_PIN 27
 #define LED_STATUS_PIN LED_BUILTIN
+#define PIR_STATUS_FEED "elisensor/feeds/living/pir"
 
 #define SERIALENDCHAR '\n' // Needed for the simulation on Tinker
 
 /************ Global Variables ******************/
 boolean debug = true;
 int i = 0;
-bool status_leak = false;
-bool previous_status_leak = false;
+bool status_pir = false;
+bool previous_status_pir = false;
 
 unsigned long currentTimer0 = 0;
 unsigned long previousTimer0 = 0;
-unsigned long interval0 = 10000;
+unsigned long interval0 = 300 * 1000;
 
 unsigned long currentTimer1 = 0;
 unsigned long previousTimer1 = 0;
 unsigned long interval1 = 1000;
 /************ Global State (you don't need to change this!) ******************/
 
-// Create an ESP8266 WiFiClient class to connect to the MQTT server.
+// Create an WiFiClient class to connect to the MQTT server.
 WiFiClient client;
 // or... use WiFiFlientSecure for SSL
 //WiFiClientSecure client;
@@ -41,7 +42,7 @@ Adafruit_MQTT_Client mqtt(&client, BROKER_IP, SERVERPORT, MQTT_USERNAME, MQTT_PA
 /****************************** Feeds ***************************************/
 
 // Notice MQTT paths for AIO follow the form: <username>/feeds/<feedname>
-Adafruit_MQTT_Publish leak_status = Adafruit_MQTT_Publish(&mqtt, LEAK_STATUS_FEED);
+Adafruit_MQTT_Publish pir_status = Adafruit_MQTT_Publish(&mqtt, PIR_STATUS_FEED);
 
 /*************************** Sketch Code ************************************/
 
@@ -71,14 +72,14 @@ void publishMsg(Adafruit_MQTT_Publish topic, const char *Msg)
   }
 }
 
-void check_status_leak()
+void check_status_pir()
 {
-  status_leak = digitalRead(LEAK_SENSOR_PIN);
+  status_pir = digitalRead(PIR_SENSOR_PIN);
 
-  if (status_leak != previous_status_leak)
+  if (status_pir != previous_status_pir)
   {
-    previous_status_leak = status_leak;
-    if (status_leak)
+    previous_status_pir = status_pir;
+    if (status_pir)
     {
       digitalWrite(LED_STATUS_PIN, HIGH);
     }
@@ -87,13 +88,13 @@ void check_status_leak()
       digitalWrite(LED_STATUS_PIN, LOW);
     }
 
-    if (status_leak)
+    if (status_pir)
     {
-      publishMsg(leak_status, "No Leak");
+      publishMsg(pir_status, "Movement");
     }
     else
     {
-      publishMsg(leak_status, "Leak");
+      publishMsg(pir_status, "No Movement");
     }
   }
 }
@@ -145,17 +146,17 @@ void MQTT_connect()
 void setup()
 {
 
-  pinMode(LEAK_SENSOR_PIN, INPUT);
+  pinMode(PIR_SENSOR_PIN, INPUT);
   pinMode(LED_STATUS_PIN, OUTPUT);
   digitalWrite(LED_STATUS_PIN, LOW);
-  digitalWrite(LEAK_SENSOR_PIN, HIGH);
+  digitalWrite(PIR_SENSOR_PIN, LOW);
 
   Serial.begin(9600);
   delay(10);
 
   if (debug)
   {
-    Serial.println(F("Leak-Sensor Debug"));
+    Serial.println(F("PIR-Sensor Debug"));
     // Connect to WiFi access point.
     Serial.println();
     Serial.println();
@@ -172,13 +173,10 @@ void setup()
       Serial.print(".");
     }
   }
-  if (debug)
-  {
-    Serial.println();
-  }
 
   if (debug)
   {
+    Serial.println();
     Serial.println("WiFi connected");
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
@@ -195,7 +193,7 @@ void loop()
   /*************************** Detect Change in leak Sensor  ************************************/
   currentTimer0 = millis();
   currentTimer1 = millis();
-  digitalWrite(LEAK_SENSOR_PIN, HIGH);
+  digitalWrite(PIR_SENSOR_PIN, LOW);
 
   if (currentTimer0 - previousTimer0 > interval0)
   {
@@ -205,13 +203,13 @@ void loop()
       Serial.println(F("Timer 0"));
     }
     //Timer 0 sends an alive MQTT Message with the Status of the Sensor
-    if (status_leak)
+    if (status_pir)
     {
-      publishMsg(leak_status, "No Leak");
+      publishMsg(pir_status, "Movement");
     }
     else
     {
-      publishMsg(leak_status, "Leak");
+      publishMsg(pir_status, "No Movement");
     }
   }
 
@@ -224,6 +222,6 @@ void loop()
     }
     //Timer 1 checks in a short interval the status of the sensor if it detects a CHANGE
     // it sends an MQTT Message
-    check_status_leak();
+    check_status_pir();
   }
 }
