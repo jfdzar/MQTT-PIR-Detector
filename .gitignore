@@ -1,3 +1,9 @@
+# Personal
+.vscode/
+include/WiFiCredentials.h
+.pio/build
+*.github
+
 # Prerequisites
 *.d
 
